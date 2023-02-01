@@ -1,0 +1,207 @@
+<?php
+
+namespace App\Http\Controllers\API;
+
+use App\Http\Controllers\Controller;
+use App\Models\Employee;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+
+
+class EmployeeController extends Controller
+{
+    public function index(Request $request)
+    {
+        $query = DB::table('employee')
+            ->leftJoin('departement','employee.departement', '=', 'departement.ID_departement')
+            ->leftJoin('job_title','employee.job_title', '=', 'job_title.id_job_title')
+            ->leftJoin('job_grade','employee.job_grade', '=', 'job_grade.id_job_grade')
+            ->leftJoin('job_level','employee.job_level', '=', 'job_level.id_job_level')
+            ->select('employee.id_employee', 'employee.emp_no', 'employee.nik', 'employee.name', 'employee.departement', 'employee.job_title', 'employee.job_grade', 'employee.job_level', 'employee.email', 'employee.phone', 'employee.address', 'employee.bill_rate','employee.client','employee.active', 'job_title.name as jobtitle', 'job_grade.name as jobgrade', 'job_level.name as joblevel', 'departement.name as namedepartement');
+
+
+        // Pencarian
+        if ($s = $request->input('s')) {
+            $query->whereRaw("employee.id_employee LIKE '%" . $s . "%'")
+                ->orWhereRaw("employee.name LIKE '%" . $s . "%'");
+        }
+
+        // Sort
+        if ($sort = $request->input('sort')) {
+            $query->orderBy('id_employee', $sort);
+        }
+
+        // Group Perkiraan
+        if ($group = $request->input('group')) {
+            $query->where('source', $group);
+        } else {
+            $group = '';
+        }
+
+
+        $perPage = 10;
+        $page = $request->input('page');
+        $from = $page - 1;
+        $total = $query->count();
+        $last_page_url = url('api/employee?page=' . ceil($total / $perPage) . '&group=' . $group);
+        $next_page_url = url('api/employee?page=' . ($page + 1) . '&group=' . $group);
+        $prev_page_url = url('api/employee?page=' . ($page - 1) . '&group=' . $group);
+
+        $result = $query->offset(($page - 1) * $perPage)->limit($perPage)->get();
+
+        return response()->json([
+            'first_page_url' => url('api/employee?page=1&group=' . $group),
+            'current_page' => $page,
+            'data' => $result,
+            'from' => $from,
+            'last_page' => ceil($total / $perPage),
+            'last_page_url' => $last_page_url,
+            'links' => '[{url: null, label: "&laquo; Previous", active: false},…]',
+            'next_page_url' => $next_page_url,
+            'path' => url('/api/employee'),
+            'total' => $total,
+            'per_page' =>  $perPage,
+            'prev_page_url' => (($from > 0)) ? $prev_page_url : '',
+            'to' => $perPage,
+            'perpage' => $perPage,
+            'page' => $page,
+            'group' => $group,
+        ]);
+    }
+
+
+
+    public function SaveData(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'emp_no'   => 'required|numeric',
+            
+            
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'data'      => [],
+                'message'   => $validator->errors(),
+                'success'   => false
+            ]);
+        }
+
+
+
+        $post = Employee::create([
+            'emp_no'        => $request->emp_no,
+            'nik'           => $request->nik,
+            'name'          => $request->name,
+            'departement'   => $request->departement,
+            'job_title'     => $request->job_title,
+            'job_grade'     => $request->job_grade,
+            'job_level'     => $request->job_level,
+            'email'         => $request->email,
+            'phone'         => $request->phone,
+            'address'       => $request->address,
+            'bill_rate'     => $request->bill_rate,
+            'client'        => $request->client,
+            'active'        => $request->active,
+            
+        ]);
+
+        return response()->json([
+            'data' => $post,
+            'message' => 'Post created successfully.',
+            'success' => true
+        ]);
+
+    }
+
+
+    public function updateData($id, Request $request)
+    {
+        // print_r($request->all());
+        $validator = Validator::make($request->all(), [
+            'emp_no'  => 'required',
+
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'data'      => [],
+                'message'   => $validator->errors(),
+                'success'   => false
+            ]);
+        }
+
+        $employee = Employee::where('id_employee', $id)->firstOrFail();
+        $employee->emp_no        = $request->emp_no;
+        $employee->nik           = $request->nik;
+        $employee->name          = $request->name;
+        $employee->departement   = $request->departement;
+        $employee->job_title     = $request->job_title;
+        $employee->job_grade     = $request->job_grade;
+        $employee->job_level     = $request->job_level;
+        $employee->email         = $request->email;
+        $employee->phone         = $request->phone;
+        $employee->address       = $request->address;
+        $employee->bill_rate     = $request->bill_rate;
+        $employee->client        = $request->client;
+        $employee->active        = $request->active;
+        $employee->save();
+
+
+        return response()->json([
+            'data'    => $employee,
+            'message' => 'Perkiraan created successfully.',
+            'code' => 200
+        ]);
+    }
+
+    public function ShowByid($id, Request  $request)
+    {
+        $query = DB::table('employee')
+        ->leftJoin('departement','employee.departement', '=', 'departement.ID_departement')
+        ->leftJoin('job_title','employee.job_title', '=', 'job_title.id_job_title')
+        ->leftJoin('job_grade','employee.job_grade', '=', 'job_grade.id_job_grade')
+        ->leftJoin('job_level','employee.job_level', '=', 'job_level.id_job_level')
+        ->select('employee.id_employee', 'employee.emp_no', 'employee.nik', 'employee.name', 'employee.departement', 'employee.job_title', 'employee.job_grade', 'employee.job_level', 'employee.email', 'employee.phone', 'employee.address', 'employee.bill_rate','employee.client','employee.active', 'job_title.name as jobtitle', 'job_grade.name as jobgrade', 'job_level.name as joblevel', 'departement.name as namedepartement')
+        ->where('employee.id_employee', $id)
+        ->first();
+
+        if (is_null($query)) {
+
+            return response()->json([
+                'message' => 'Data Employee Not Found',
+                'code' => 200
+            ]);
+            
+        } else {
+
+            return response()->json(
+
+                  $query
+            
+            );
+        }
+    }
+
+    public function deleteData($id, Request  $request)
+    {
+        
+       
+
+        $employee = Employee::where('id_employee', $id)->firstOrFail();
+
+        if ($employee) {
+            $employee->delete();
+            return response()->json([
+                'message' => 'Employee Deleted successfully.',
+                'code' => 200
+            ]);
+        } else {
+            return response()->json([
+                'message' => "Employee id $id not found",
+
+            ]);
+        }
+    }
+}
